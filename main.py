@@ -1,385 +1,467 @@
-from typing import TypedDict, List, Dict, Any, Optional, Annotated
-from langgraph.graph import StateGraph, START, END, add_messages
-from datetime import datetime
-
-# ==================== UNIFIED PIPELINE STATE ====================
-
-class ClaimProcessingPipelineState(TypedDict):
-    # Input
-    user_input: str
-    
-    # Module 1: Input Processing outputs
-    raw_content: str
-    input_type: str
-    
-    # Module 2: Trigger Extraction outputs  
-    trigger_codes: List[Dict[str, Any]]
-    
-    # Module 3: Policy Lookup outputs
-    policy_instructions: List[Dict[str, Any]]
-    
-    # Module 4: Action Planning outputs
-    action_plan: Dict[str, Any]
-    formatted_output: str
-    
-    # Pipeline tracking
-    current_module: str
-    pipeline_metadata: Dict[str, Any]
-    errors: List[str]
-
-# ==================== MODULE NODE FUNCTIONS ====================
-
-def module1_input_processing_node(state: ClaimProcessingPipelineState) -> ClaimProcessingPipelineState:
-    """Module 1: Input Processing Node - processes user input into clean text."""
-    
-    try:
-        state["current_module"] = "module1_input_processing"
-        
-        # Call Module 1 logic (from your previous implementation)
-        # result = process_input(state["user_input"])
-        
-        # Mock simple implementation
-        user_input = state["user_input"]
-        if "email" in user_input.lower():
-            state["raw_content"] = f"Email content: {user_input} with trigger codes TRG-001, CLM-456"
-            state["input_type"] = "email_query"
-        else:
-            state["raw_content"] = user_input
-            state["input_type"] = "raw_text"
-        
-        # Update pipeline metadata
-        state["pipeline_metadata"]["module1"] = {
-            "completed_at": datetime.now().isoformat(),
-            "success": True,
-            "input_type": state["input_type"],
-            "content_length": len(state["raw_content"])
-        }
-        
-    except Exception as e:
-        state["errors"].append(f"Module 1 failed: {str(e)}")
-        state["raw_content"] = state["user_input"]  # Fallback
-        state["input_type"] = "raw_text"
-    
-    return state
-
-def module2_trigger_extraction_node(state: ClaimProcessingPipelineState) -> ClaimProcessingPipelineState:
-    """Module 2: Trigger Extraction Node - extracts trigger codes from raw content."""
-    
-    try:
-        state["current_module"] = "module2_trigger_extraction"
-        
-        # Call Module 2 logic (from your previous implementation)
-        # result = extract_trigger_codes(state["raw_content"], state["input_type"])
-        
-        # Mock simple implementation
-        import re
-        patterns = [r'TRG-\d+', r'CLM-\d+', r'CLAIM-\d+']
-        codes = []
-        
-        for pattern in patterns:
-            matches = re.findall(pattern, state["raw_content"], re.IGNORECASE)
-            for match in matches:
-                codes.append({
-                    "code": match.upper(),
-                    "confidence": 0.9,
-                    "source": "regex"
-                })
-        
-        state["trigger_codes"] = codes
-        
-        # Update pipeline metadata
-        state["pipeline_metadata"]["module2"] = {
-            "completed_at": datetime.now().isoformat(),
-            "success": True,
-            "codes_found": len(codes),
-            "codes": [c["code"] for c in codes]
-        }
-        
-    except Exception as e:
-        state["errors"].append(f"Module 2 failed: {str(e)}")
-        state["trigger_codes"] = []
-    
-    return state
-
-def module3_policy_lookup_node(state: ClaimProcessingPipelineState) -> ClaimProcessingPipelineState:
-    """Module 3: Policy Lookup Node - retrieves instructions for trigger codes."""
-    
-    try:
-        state["current_module"] = "module3_policy_lookup"
-        
-        # Call Module 3 logic (from your previous implementation)
-        # result = lookup_policy_instructions(state["trigger_codes"])
-        
-        # Mock simple implementation
-        mock_policies = {
-            "TRG-001": {"priority": "HIGH", "steps": ["Immediate review", "Supervisor approval"]},
-            "CLM-456": {"priority": "MEDIUM", "steps": ["Standard processing", "Coverage check"]},
-            "CLAIM-123": {"priority": "HIGH", "steps": ["Fraud investigation"]}
-        }
-        
-        instructions = []
-        for code_obj in state["trigger_codes"]:
-            code = code_obj["code"]
-            if code in mock_policies:
-                instructions.append({
-                    "trigger_code": code,
-                    "found": True,
-                    "instructions": mock_policies[code],
-                    "source": "json_file"
-                })
-            else:
-                instructions.append({
-                    "trigger_code": code,
-                    "found": False,
-                    "instructions": {},
-                    "source": "none"
-                })
-        
-        state["policy_instructions"] = instructions
-        
-        # Update pipeline metadata
-        state["pipeline_metadata"]["module3"] = {
-            "completed_at": datetime.now().isoformat(),
-            "success": True,
-            "instructions_found": len([i for i in instructions if i["found"]]),
-            "total_requested": len(state["trigger_codes"])
-        }
-        
-    except Exception as e:
-        state["errors"].append(f"Module 3 failed: {str(e)}")
-        state["policy_instructions"] = []
-    
-    return state
-
-def module4_action_planning_node(state: ClaimProcessingPipelineState) -> ClaimProcessingPipelineState:
-    """Module 4: Action Planning Node - generates final action plan."""
-    
-    try:
-        state["current_module"] = "module4_action_planning"
-        
-        # Call Module 4 logic (from your previous implementation)
-        # result = generate_action_plan(state["policy_instructions"], state["raw_content"])
-        
-        # Mock simple implementation
-        codes = [inst["trigger_code"] for inst in state["policy_instructions"] if inst["found"]]
-        
-        summary = {
-            "request": f"Process claim with {len(codes)} trigger codes",
-            "actions": f"Follow procedures for: {', '.join(codes)}",
-            "trigger_codes": codes,
-            "total_codes": len(codes)
-        }
-        
-        state["action_plan"] = {
-            "summary": summary,
-            "created_at": datetime.now().isoformat(),
-            "status": "ready"
-        }
-        
-        # Generate formatted output
-        state["formatted_output"] = format_final_output(state)
-        
-        # Update pipeline metadata
-        state["pipeline_metadata"]["module4"] = {
-            "completed_at": datetime.now().isoformat(),
-            "success": True,
-            "plan_generated": True
-        }
-        
-    except Exception as e:
-        state["errors"].append(f"Module 4 failed: {str(e)}")
-        state["action_plan"] = {}
-        state["formatted_output"] = "Action plan generation failed"
-    
-    return state
-
-def format_final_output(state: ClaimProcessingPipelineState) -> str:
-    """Formats the final output for claim processor."""
-    
-    action_plan = state.get("action_plan", {})
-    summary = action_plan.get("summary", {})
-    
-    output = f"""
-CLAIM PROCESSING ACTION PLAN
-Generated: {action_plan.get('created_at', 'Unknown')}
-
-SUMMARY
-Request: {summary.get('request', 'N/A')}
-Actions: {summary.get('actions', 'N/A')}
-
-TRIGGER CODES FOUND
+#!/usr/bin/env python3
 """
-    
-    codes = summary.get('trigger_codes', [])
-    for i, code in enumerate(codes, 1):
-        output += f"{i}. {code}\n"
-    
-    if not codes:
-        output += "No trigger codes found\n"
-    
-    return output.strip()
+Pattern 2: How Specialized Agents Connect, Share State, and Orchestrate
+Shows 3 different orchestration approaches
+"""
+import asyncio
+from pathlib import Path
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional
+from enum import Enum
 
-# ==================== PIPELINE WORKFLOW CREATION ====================
+from mcp import ClientSession
+from mcp.client.stdio import stdio_client
+from langchain_mcp_adapters.tools import load_mcp_tools
+from langgraph.prebuilt import create_react_agent
+from langgraph.graph import StateGraph, END
+from langchain_core.messages import HumanMessage, AIMessage
 
-def create_claim_processing_pipeline():
-    """Creates the complete end-to-end claim processing pipeline."""
+# Shared State Object
+@dataclass
+class ClaimProcessingState:
+    """Shared state that flows between agents"""
+    # Input
+    input_text: str = ""
+    input_type: str = ""  # "text", "email", "pdf"
     
-    # Create the main pipeline graph
-    workflow = StateGraph(ClaimProcessingPipelineState)
+    # Document Agent Results
+    extracted_codes: List[str] = field(default_factory=list)
+    document_quality: str = ""
+    codes_with_context: str = ""
     
-    # Add all module nodes
-    workflow.add_node("module1_input_processing", module1_input_processing_node)
-    workflow.add_node("module2_trigger_extraction", module2_trigger_extraction_node)
-    workflow.add_node("module3_policy_lookup", module3_policy_lookup_node)
-    workflow.add_node("module4_action_planning", module4_action_planning_node)
+    # Policy Agent Results  
+    policy_details: Dict[str, str] = field(default_factory=dict)
+    priority_codes: List[str] = field(default_factory=list)
+    deadlines: Dict[str, str] = field(default_factory=dict)
     
-    # Define linear pipeline flow
-    workflow.add_edge(START, "module1_input_processing")
-    workflow.add_edge("module1_input_processing", "module2_trigger_extraction")
-    workflow.add_edge("module2_trigger_extraction", "module3_policy_lookup")
-    workflow.add_edge("module3_policy_lookup", "module4_action_planning")
-    workflow.add_edge("module4_action_planning", END)
+    # Email Agent Results
+    related_emails: List[str] = field(default_factory=list)
+    urgent_emails: List[str] = field(default_factory=list)
     
-    return workflow.compile()
+    # Final Output
+    action_plan: str = ""
+    processing_complete: bool = False
+    
+    # Agent Communication
+    agent_messages: List[Dict[str, Any]] = field(default_factory=list)
+    current_step: str = "input_processing"
+    errors: List[str] = field(default_factory=list)
 
-# ==================== PIPELINE EXECUTION INTERFACE ====================
+class ProcessingStep(Enum):
+    INPUT_PROCESSING = "input_processing"
+    DOCUMENT_ANALYSIS = "document_analysis"  
+    POLICY_LOOKUP = "policy_lookup"
+    EMAIL_SEARCH = "email_search"
+    ACTION_PLANNING = "action_planning"
+    COMPLETE = "complete"
 
-def run_claim_processing_pipeline(user_input: str) -> Dict[str, Any]:
-    """Main interface to run the complete claim processing pipeline."""
-    
-    # Initialize pipeline state
-    initial_state = ClaimProcessingPipelineState(
-        user_input=user_input,
-        raw_content="",
-        input_type="",
-        trigger_codes=[],
-        policy_instructions=[],
-        action_plan={},
-        formatted_output="",
-        current_module="",
-        pipeline_metadata={
-            "started_at": datetime.now().isoformat(),
-            "pipeline_id": f"pipeline_{int(datetime.now().timestamp())}",
-            "total_modules": 4
-        },
-        errors=[]
-    )
-    
-    # Create and run pipeline
-    pipeline = create_claim_processing_pipeline()
-    final_state = pipeline.invoke(initial_state)
-    
-    # Add completion metadata
-    final_state["pipeline_metadata"]["completed_at"] = datetime.now().isoformat()
-    final_state["pipeline_metadata"]["success"] = len(final_state["errors"]) == 0
-    final_state["pipeline_metadata"]["total_errors"] = len(final_state["errors"])
-    
-    return final_state
+# Simple MCP Servers (same as before but abbreviated)
+POLICY_SERVER = '''
+from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("Policy Server")
 
-# ==================== CONDITIONAL ROUTING EXAMPLE ====================
+POLICIES = {
+    "TRG-001": {"title": "High Priority", "priority": "high", "deadline": "2 hours"},
+    "CLM-456": {"title": "Standard Processing", "priority": "medium", "deadline": "5 days"}
+}
 
-def create_pipeline_with_conditional_routing():
-    """Example of pipeline with conditional routing based on results."""
-    
-    def should_skip_module3(state: ClaimProcessingPipelineState) -> str:
-        """Conditional routing: skip policy lookup if no trigger codes found."""
-        if not state["trigger_codes"]:
-            return "module4_action_planning"  # Skip module 3
-        else:
-            return "module3_policy_lookup"    # Continue normally
-    
-    workflow = StateGraph(ClaimProcessingPipelineState)
-    
-    # Add nodes
-    workflow.add_node("module1_input_processing", module1_input_processing_node)
-    workflow.add_node("module2_trigger_extraction", module2_trigger_extraction_node)
-    workflow.add_node("module3_policy_lookup", module3_policy_lookup_node)
-    workflow.add_node("module4_action_planning", module4_action_planning_node)
-    
-    # Linear flow for first two modules
-    workflow.add_edge(START, "module1_input_processing")
-    workflow.add_edge("module1_input_processing", "module2_trigger_extraction")
-    
-    # Conditional routing after trigger extraction
-    workflow.add_conditional_edges(
-        "module2_trigger_extraction",
-        should_skip_module3,
-        {
-            "module3_policy_lookup": "module3_policy_lookup",
-            "module4_action_planning": "module4_action_planning"
-        }
-    )
-    
-    # Final connections
-    workflow.add_edge("module3_policy_lookup", "module4_action_planning")
-    workflow.add_edge("module4_action_planning", END)
-    
-    return workflow.compile()
+@mcp.tool()
+def lookup_policy(code: str) -> str:
+    if code in POLICIES:
+        p = POLICIES[code]
+        return f"{code}: {p['title']} (Priority: {p['priority']}, Deadline: {p['deadline']})"
+    return f"{code}: Not found"
 
-# ==================== USAGE EXAMPLES ====================
+@mcp.tool()
+def get_high_priority_codes() -> str:
+    high_codes = [c for c, p in POLICIES.items() if p['priority'] == 'high']
+    return f"High priority: {', '.join(high_codes)}"
+
+if __name__ == "__main__": mcp.run(transport="stdio")
+'''
+
+DOCUMENT_SERVER = '''
+from mcp.server.fastmcp import FastMCP
+import re
+mcp = FastMCP("Document Server")
+
+@mcp.tool()
+def extract_trigger_codes(text: str) -> str:
+    codes = re.findall(r'\\b[A-Z]{3}-\\d{3}\\b', text)
+    return ', '.join(set(codes)) if codes else "No codes found"
+
+@mcp.tool() 
+def assess_quality(text: str) -> str:
+    words = len(text.split())
+    if words < 10: return "POOR"
+    elif words < 50: return "FAIR" 
+    else: return "GOOD"
+
+if __name__ == "__main__": mcp.run(transport="stdio")
+'''
+
+# =============================================================================
+# APPROACH 1: Sequential Orchestration (Simple)
+# =============================================================================
+
+class SequentialOrchestrator:
+    """Simple sequential processing - one agent after another"""
+    
+    def __init__(self):
+        self.document_agent = None
+        self.policy_agent = None
+        self.state = ClaimProcessingState()
+    
+    async def setup_agents(self):
+        """Initialize all agents"""
+        # Write server files
+        Path("policy_server.py").write_text(POLICY_SERVER)
+        Path("document_server.py").write_text(DOCUMENT_SERVER)
+        
+        # Setup Document Agent
+        async with stdio_client("python", "document_server.py") as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                doc_tools = await load_mcp_tools(session)
+                self.document_agent = create_react_agent("openai:gpt-4o-mini", doc_tools)
+        
+        # Setup Policy Agent
+        async with stdio_client("python", "policy_server.py") as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                policy_tools = await load_mcp_tools(session)
+                self.policy_agent = create_react_agent("openai:gpt-4o-mini", policy_tools)
+        
+        print("✅ Sequential orchestrator ready")
+    
+    async def process_claim(self, input_text: str) -> ClaimProcessingState:
+        """Process claim sequentially: Document → Policy → Plan"""
+        
+        self.state.input_text = input_text
+        self.state.current_step = "document_analysis"
+        
+        # Step 1: Document Agent extracts codes
+        print("🔍 Step 1: Document Analysis")
+        doc_response = await self.document_agent.ainvoke({
+            "messages": [HumanMessage(content=f"Extract trigger codes and assess quality: {input_text}")]
+        })
+        
+        # Parse document agent response
+        doc_result = doc_response["messages"][-1].content
+        self.state.agent_messages.append({"agent": "document", "response": doc_result})
+        
+        # Extract codes from response (simplified parsing)
+        import re
+        codes = re.findall(r'[A-Z]{3}-\d{3}', doc_result)
+        self.state.extracted_codes = codes
+        self.state.current_step = "policy_lookup"
+        
+        # Step 2: Policy Agent looks up policies
+        print(f"📋 Step 2: Policy Lookup for codes: {codes}")
+        if codes:
+            policy_prompt = f"Look up policies for these trigger codes: {', '.join(codes)}"
+            policy_response = await self.policy_agent.ainvoke({
+                "messages": [HumanMessage(content=policy_prompt)]
+            })
+            
+            policy_result = policy_response["messages"][-1].content
+            self.state.agent_messages.append({"agent": "policy", "response": policy_result})
+        
+        # Step 3: Generate final plan
+        self.state.current_step = "action_planning"
+        self.state.action_plan = self._generate_action_plan()
+        self.state.processing_complete = True
+        
+        return self.state
+    
+    def _generate_action_plan(self) -> str:
+        """Combine results into action plan"""
+        plan = "CLAIM PROCESSING ACTION PLAN\\n" + "="*30 + "\\n\\n"
+        
+        if self.state.extracted_codes:
+            plan += f"TRIGGER CODES FOUND: {', '.join(self.state.extracted_codes)}\\n\\n"
+            
+        plan += "AGENT ANALYSIS:\\n"
+        for msg in self.state.agent_messages:
+            plan += f"- {msg['agent'].title()}: {msg['response'][:100]}...\\n"
+        
+        plan += "\\nNEXT STEPS:\\n"
+        plan += "1. Review agent recommendations above\\n"
+        plan += "2. Process according to trigger code priorities\\n"
+        plan += "3. Follow up within specified deadlines\\n"
+        
+        return plan
+
+# =============================================================================
+# APPROACH 2: LangGraph State Management (Recommended)
+# =============================================================================
+
+class LangGraphOrchestrator:
+    """LangGraph-based orchestration with proper state flow"""
+    
+    def __init__(self):
+        self.document_agent = None
+        self.policy_agent = None
+        self.workflow = None
+    
+    async def setup_agents(self):
+        """Setup agents and workflow"""
+        Path("policy_server.py").write_text(POLICY_SERVER)
+        Path("document_server.py").write_text(DOCUMENT_SERVER)
+        
+        # Setup agents (same as before)
+        async with stdio_client("python", "document_server.py") as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                doc_tools = await load_mcp_tools(session)
+                self.document_agent = create_react_agent("openai:gpt-4o-mini", doc_tools)
+        
+        async with stdio_client("python", "policy_server.py") as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                policy_tools = await load_mcp_tools(session)
+                self.policy_agent = create_react_agent("openai:gpt-4o-mini", policy_tools)
+        
+        # Create LangGraph workflow
+        self.workflow = self._create_workflow()
+        print("✅ LangGraph orchestrator ready")
+    
+    def _create_workflow(self) -> StateGraph:
+        """Create LangGraph workflow with state management"""
+        
+        workflow = StateGraph(ClaimProcessingState)
+        
+        # Add nodes (each node modifies the shared state)
+        workflow.add_node("document_analysis", self._document_node)
+        workflow.add_node("policy_lookup", self._policy_node)
+        workflow.add_node("action_planning", self._planning_node)
+        
+        # Define flow
+        workflow.set_entry_point("document_analysis")
+        workflow.add_edge("document_analysis", "policy_lookup")
+        workflow.add_edge("policy_lookup", "action_planning")
+        workflow.add_edge("action_planning", END)
+        
+        return workflow.compile()
+    
+    async def _document_node(self, state: ClaimProcessingState) -> ClaimProcessingState:
+        """Document analysis node - modifies state"""
+        print("🔍 LangGraph: Document Analysis Node")
+        
+        response = await self.document_agent.ainvoke({
+            "messages": [HumanMessage(content=f"Extract codes and assess quality: {state.input_text}")]
+        })
+        
+        result = response["messages"][-1].content
+        state.agent_messages.append({"agent": "document", "response": result})
+        
+        # Extract codes
+        import re
+        codes = re.findall(r'[A-Z]{3}-\d{3}', result)
+        state.extracted_codes = codes
+        state.current_step = "policy_lookup"
+        
+        return state
+    
+    async def _policy_node(self, state: ClaimProcessingState) -> ClaimProcessingState:
+        """Policy lookup node - modifies state"""
+        print(f"📋 LangGraph: Policy Lookup Node for {state.extracted_codes}")
+        
+        if state.extracted_codes:
+            codes_str = ', '.join(state.extracted_codes)
+            response = await self.policy_agent.ainvoke({
+                "messages": [HumanMessage(content=f"Look up policies for: {codes_str}")]
+            })
+            
+            result = response["messages"][-1].content
+            state.agent_messages.append({"agent": "policy", "response": result})
+        
+        state.current_step = "action_planning"
+        return state
+    
+    async def _planning_node(self, state: ClaimProcessingState) -> ClaimProcessingState:
+        """Final planning node"""
+        print("📝 LangGraph: Action Planning Node")
+        
+        # Generate comprehensive plan
+        plan = "LANGGRAPH CLAIM PROCESSING PLAN\\n" + "="*35 + "\\n\\n"
+        
+        if state.extracted_codes:
+            plan += f"CODES EXTRACTED: {', '.join(state.extracted_codes)}\\n\\n"
+        
+        plan += "WORKFLOW RESULTS:\\n"
+        for msg in state.agent_messages:
+            plan += f"📍 {msg['agent'].title()} Agent:\\n   {msg['response'][:150]}...\\n\\n"
+        
+        plan += "STATUS: Processing complete via LangGraph workflow"
+        
+        state.action_plan = plan
+        state.processing_complete = True
+        state.current_step = "complete"
+        
+        return state
+    
+    async def process_claim(self, input_text: str) -> ClaimProcessingState:
+        """Process claim using LangGraph workflow"""
+        
+        initial_state = ClaimProcessingState(
+            input_text=input_text,
+            current_step="document_analysis"
+        )
+        
+        # Run the workflow
+        final_state = await self.workflow.ainvoke(initial_state)
+        return final_state
+
+# =============================================================================
+# APPROACH 3: Event-Driven Coordination (Advanced)
+# =============================================================================
+
+class EventDrivenOrchestrator:
+    """Event-driven coordination between agents"""
+    
+    def __init__(self):
+        self.document_agent = None
+        self.policy_agent = None
+        self.state = ClaimProcessingState()
+        self.event_queue = asyncio.Queue()
+    
+    async def setup_agents(self):
+        """Setup agents"""
+        Path("policy_server.py").write_text(POLICY_SERVER)
+        Path("document_server.py").write_text(DOCUMENT_SERVER)
+        
+        # Setup agents (same pattern)
+        async with stdio_client("python", "document_server.py") as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                doc_tools = await load_mcp_tools(session)
+                self.document_agent = create_react_agent("openai:gpt-4o-mini", doc_tools)
+        
+        async with stdio_client("python", "policy_server.py") as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                policy_tools = await load_mcp_tools(session)
+                self.policy_agent = create_react_agent("openai:gpt-4o-mini", policy_tools)
+        
+        print("✅ Event-driven orchestrator ready")
+    
+    async def process_claim(self, input_text: str) -> ClaimProcessingState:
+        """Process using event-driven coordination"""
+        
+        self.state.input_text = input_text
+        
+        # Start event processing
+        await self.event_queue.put({"type": "start_processing", "data": input_text})
+        
+        # Process events until completion
+        while not self.state.processing_complete:
+            event = await self.event_queue.get()
+            await self._handle_event(event)
+        
+        return self.state
+    
+    async def _handle_event(self, event: Dict[str, Any]):
+        """Handle different types of events"""
+        
+        if event["type"] == "start_processing":
+            print("🎬 Event: Starting processing")
+            await self.event_queue.put({"type": "analyze_document", "data": event["data"]})
+        
+        elif event["type"] == "analyze_document":
+            print("🔍 Event: Analyzing document")
+            response = await self.document_agent.ainvoke({
+                "messages": [HumanMessage(content=f"Extract codes: {event['data']}")]
+            })
+            
+            result = response["messages"][-1].content
+            self.state.agent_messages.append({"agent": "document", "response": result})
+            
+            # Extract codes and trigger next event
+            import re
+            codes = re.findall(r'[A-Z]{3}-\d{3}', result)
+            self.state.extracted_codes = codes
+            
+            await self.event_queue.put({"type": "lookup_policies", "data": codes})
+        
+        elif event["type"] == "lookup_policies":
+            print(f"📋 Event: Looking up policies for {event['data']}")
+            
+            if event["data"]:
+                codes_str = ', '.join(event["data"])
+                response = await self.policy_agent.ainvoke({
+                    "messages": [HumanMessage(content=f"Look up: {codes_str}")]
+                })
+                
+                result = response["messages"][-1].content
+                self.state.agent_messages.append({"agent": "policy", "response": result})
+            
+            await self.event_queue.put({"type": "finalize_plan", "data": None})
+        
+        elif event["type"] == "finalize_plan":
+            print("📝 Event: Finalizing action plan")
+            
+            plan = "EVENT-DRIVEN PROCESSING COMPLETE\\n" + "="*35 + "\\n\\n"
+            plan += f"CODES: {', '.join(self.state.extracted_codes)}\\n\\n"
+            
+            for msg in self.state.agent_messages:
+                plan += f"🎯 {msg['agent'].title()}: {msg['response'][:100]}...\\n"
+            
+            self.state.action_plan = plan
+            self.state.processing_complete = True
+
+async def main():
+    """Test all three orchestration approaches"""
+    print("🎭 Testing Agent Orchestration Patterns")
+    print("="*50)
+    
+    test_input = """
+    URGENT: Process claim immediately
+    Trigger codes: TRG-001, CLM-456
+    High priority review required
+    """
+    
+    try:
+        # Test Approach 1: Sequential
+        print("\\n🥇 APPROACH 1: Sequential Orchestration")
+        print("-"*40)
+        seq_orch = SequentialOrchestrator()
+        await seq_orch.setup_agents()
+        seq_result = await seq_orch.process_claim(test_input)
+        print("Result:", seq_result.action_plan[:200] + "...")
+        
+        # Test Approach 2: LangGraph (Recommended)
+        print("\\n🥇 APPROACH 2: LangGraph State Management")
+        print("-"*40)
+        lg_orch = LangGraphOrchestrator()
+        await lg_orch.setup_agents()
+        lg_result = await lg_orch.process_claim(test_input)
+        print("Result:", lg_result.action_plan[:200] + "...")
+        
+        # Test Approach 3: Event-Driven
+        print("\\n🥇 APPROACH 3: Event-Driven Coordination")
+        print("-"*40)
+        event_orch = EventDrivenOrchestrator()
+        await event_orch.setup_agents()
+        event_result = await event_orch.process_claim(test_input)
+        print("Result:", event_result.action_plan[:200] + "...")
+        
+        print("\\n✅ All approaches completed!")
+        print("\\n🎯 RECOMMENDATION: Use LangGraph (Approach 2)")
+        print("   - Built-in state management")
+        print("   - Visual workflow representation") 
+        print("   - Easy debugging and monitoring")
+        print("   - Excellent error handling")
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        print("Make sure: export OPENAI_API_KEY=your_key")
+    
+    finally:
+        # Cleanup
+        for file in ["policy_server.py", "document_server.py"]:
+            if Path(file).exists():
+                Path(file).unlink()
 
 if __name__ == "__main__":
-    print("=== END-TO-END CLAIM PROCESSING PIPELINE TESTING ===")
-    
-    test_cases = [
-        "Process email from claims@company.com with TRG-001 and CLM-456",
-        "Review claim document containing CLAIM-123 fraud investigation",
-        "Handle standard claim with no specific trigger codes mentioned"
-    ]
-    
-    for i, test_input in enumerate(test_cases, 1):
-        print(f"\n--- Test Case {i}: {test_input[:50]}... ---")
-        
-        # Run complete pipeline
-        result = run_claim_processing_pipeline(test_input)
-        
-        # Display results
-        print(f"Pipeline Success: {result['pipeline_metadata']['success']}")
-        print(f"Modules Completed: {len([k for k in result['pipeline_metadata'].keys() if k.startswith('module')])}")
-        print(f"Trigger Codes Found: {len(result['trigger_codes'])}")
-        print(f"Instructions Retrieved: {len([i for i in result['policy_instructions'] if i.get('found')])}")
-        
-        if result['errors']:
-            print(f"Errors: {result['errors']}")
-        
-        print("\nFinal Output:")
-        print(result['formatted_output'])
-        print("-" * 60)
-    
-    print("\n=== PIPELINE TESTING COMPLETE ===")
-
-# ==================== STATE MANAGEMENT BEST PRACTICES ====================
-
-"""
-STATE MANAGEMENT KEY POINTS:
-
-1. **Unified State Structure**
-   - Single TypedDict for entire pipeline
-   - Each module adds its outputs to shared state
-   - Clear data flow between modules
-
-2. **State Updates**
-   - Each module node updates specific state fields
-   - Preserves previous module outputs
-   - Adds metadata and error tracking
-
-3. **Error Handling**
-   - Errors accumulated in shared errors list
-   - Modules can fallback gracefully
-   - Pipeline continues even with partial failures
-
-4. **Metadata Tracking**
-   - Each module records completion status
-   - Pipeline-level metadata for monitoring
-   - Timing and success tracking
-
-5. **Conditional Routing**
-   - Can skip modules based on state
-   - Dynamic pipeline adaptation
-   - Efficient processing paths
-
-6. **Module Integration**
-   - Each module is a single node function
-   - Clear input/output contracts via state
-   - Easy to test and maintain individually
-"""
+    asyncio.run(main())
